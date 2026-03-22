@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { supabase, DbProduct } from "@/lib/supabase";
-import { Product } from "@/lib/store";
+import { supabase, isSupabaseConfigured, DbProduct } from "@/lib/supabase";
+import { Product, products as staticProducts } from "@/lib/store";
 
-// Convert Supabase DB product to app Product format
 const toAppProduct = (p: DbProduct): Product => ({
   id: p.id,
   name: p.name,
@@ -22,6 +21,13 @@ export const useProducts = () => {
 
   useEffect(() => {
     const fetchProducts = async () => {
+      // If Supabase not configured, use static data immediately
+      if (!isSupabaseConfigured) {
+        setProducts(staticProducts);
+        setLoading(false);
+        return;
+      }
+
       try {
         setLoading(true);
         const { data, error } = await supabase
@@ -31,12 +37,16 @@ export const useProducts = () => {
           .order("created_at", { ascending: true });
 
         if (error) throw error;
-        setProducts((data as DbProduct[]).map(toAppProduct));
+
+        if (data && data.length > 0) {
+          setProducts((data as DbProduct[]).map(toAppProduct));
+        } else {
+          // DB is empty — use static fallback
+          setProducts(staticProducts);
+        }
       } catch (err) {
-        console.error("Error fetching products:", err);
-        setError("Failed to load products. Using sample data.");
-        // Fallback to static store data if Supabase fails
-        const { products: staticProducts } = await import("@/lib/store");
+        console.error("Supabase error:", err);
+        setError("Using sample products.");
         setProducts(staticProducts);
       } finally {
         setLoading(false);

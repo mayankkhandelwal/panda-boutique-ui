@@ -19,6 +19,15 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const CustomerLayout = ({ children }: { children: React.ReactNode }) => (
+  <>
+    <Navbar />
+    <CartDrawer />
+    {children}
+    <Footer />
+  </>
+);
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -28,25 +37,14 @@ const App = () => (
         <AuthProvider>
           <CartProvider>
             <Routes>
-              {/* Admin — no navbar/footer */}
               <Route path="/admin" element={<Admin />} />
-              {/* Customer routes — with navbar/footer */}
-              <Route path="*" element={
-                <>
-                  <Navbar />
-                  <CartDrawer />
-                  <Routes>
-                    <Route path="/" element={<Index />} />
-                    <Route path="/product/:id" element={<ProductDetail />} />
-                    <Route path="/checkout" element={<Checkout />} />
-                    <Route path="/order-success" element={<OrderSuccess />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/my-orders" element={<MyOrders />} />
-                    <Route path="*" element={<NotFound />} />
-                  </Routes>
-                  <Footer />
-                </>
-              } />
+              <Route path="/" element={<CustomerLayout><Index /></CustomerLayout>} />
+              <Route path="/product/:id" element={<CustomerLayout><ProductDetail /></CustomerLayout>} />
+              <Route path="/checkout" element={<CustomerLayout><Checkout /></CustomerLayout>} />
+              <Route path="/order-success" element={<CustomerLayout><OrderSuccess /></CustomerLayout>} />
+              <Route path="/login" element={<CustomerLayout><Login /></CustomerLayout>} />
+              <Route path="/my-orders" element={<CustomerLayout><MyOrders /></CustomerLayout>} />
+              <Route path="*" element={<CustomerLayout><NotFound /></CustomerLayout>} />
             </Routes>
           </CartProvider>
         </AuthProvider>
