@@ -11,6 +11,7 @@ import Index from "./pages/Index";
 import ProductDetail from "./pages/ProductDetail";
 import Checkout from "./pages/Checkout";
 import OrderSuccess from "./pages/OrderSuccess";
+import Admin from "./pages/Admin";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,16 +23,23 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <CartProvider>
-          <Navbar />
-          <CartDrawer />
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/product/:id" element={<ProductDetail />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/order-success" element={<OrderSuccess />} />
-            <Route path="*" element={<NotFound />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="*" element={
+              <>
+                <Navbar />
+                <CartDrawer />
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  <Route path="/product/:id" element={<ProductDetail />} />
+                  <Route path="/checkout" element={<Checkout />} />
+                  <Route path="/order-success" element={<OrderSuccess />} />
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+                <Footer />
+              </>
+            } />
           </Routes>
-          <Footer />
         </CartProvider>
       </BrowserRouter>
     </TooltipProvider>

@@ -4,23 +4,28 @@ import { CheckCircle } from "lucide-react";
 const OrderSuccess = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const orderId = (location.state as { orderId?: string })?.orderId;
+  const state = location.state as { orderId?: string; customerName?: string } | null;
+  const orderId = state?.orderId;
+  const customerName = state?.customerName;
 
   if (!orderId) return <Navigate to="/" replace />;
 
   return (
     <main className="container max-w-lg py-16 md:py-24 text-center space-y-6 animate-fade-up">
-      <CheckCircle className="w-20 h-20 text-success mx-auto" />
+      <CheckCircle className="w-20 h-20 text-green-500 mx-auto" />
       <h1 className="font-display text-3xl md:text-4xl font-bold">Order Confirmed!</h1>
       <p className="text-muted-foreground">
-        Thank you! Your Estranged Panda order has been confirmed.
+        {customerName ? `Thank you, ${customerName}!` : "Thank you!"} Your Estranged Panda order has been confirmed.
       </p>
-      <p className="text-sm font-medium">
-        Order ID: <span className="text-primary">{orderId}</span>
-      </p>
+      <div className="bg-secondary/50 rounded-lg py-3 px-6 inline-block">
+        <p className="text-sm text-muted-foreground">Order ID</p>
+        <p className="text-xl font-bold text-primary">{orderId}</p>
+      </div>
 
-      <div className="bg-secondary/50 rounded-lg p-5 text-sm text-muted-foreground text-left space-y-2">
-        <p>📦 We will place your order and ship it shortly. You will receive your Blue Dart tracking number on WhatsApp within 24-48 hours.</p>
+      <div className="bg-secondary/50 rounded-lg p-5 text-sm text-muted-foreground text-left space-y-3">
+        <p>📧 Order confirmation sent to your email.</p>
+        <p>💬 WhatsApp confirmation sent to your phone.</p>
+        <p>📦 We will place your order on Printrove and ship it shortly. You will receive your <strong className="text-foreground">Blue Dart tracking number on WhatsApp within 24-48 hours.</strong></p>
       </div>
 
       <button

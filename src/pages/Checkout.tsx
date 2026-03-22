@@ -1,10 +1,14 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCart } from "@/lib/cart-context";
+import { usePlaceOrder } from "@/hooks/useOrders";
 
 const Checkout = () => {
   const { items, totalAmount, clearCart } = useCart();
   const navigate = useNavigate();
+  const { placeOrder } = usePlaceOrder();
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
   const [form, setForm] = useState({
     name: "", email: "", phone: "", address: "", city: "", pincode: "", state: "",
   });
@@ -12,11 +16,44 @@ const Checkout = () => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const orderId = `ORD-2025-${Math.floor(1000 + Math.random() * 9000)}`;
-    clearCart();
-    navigate("/order-success", { state: { orderId } });
+    setFormError("");
+
+    if (!/^\d{10}$/.test(form.phone)) {
+      setFormError("Enter a valid 10-digit phone number.");
+      return;
+    }
+    if (!/^\d{6}$/.test(form.pincode)) {
+      setFormError("Enter a valid 6-digit pincode.");
+      return;
+    }
+
+    setSubmitting(true);
+    const result = await placeOrder({
+      customerName: form.name,
+      customerEmail: form.email,
+      customerPhone: form.phone,
+      deliveryAddress: {
+        address: form.address,
+        city: form.city,
+        state: form.state,
+        pincode: form.pincode,
+      },
+      cartItems: items,
+      totalAmount,
+    });
+
+    setSubmitting(false);
+
+    if (result.success) {
+      clearCart();
+      navigate("/order-success", {
+        state: { orderId: result.orderNumber, customerName: form.name },
+      });
+    } else {
+      setFormError(result.error || "Something went wrong. Please try again.");
+    }
   };
 
   if (items.length === 0) {
@@ -32,12 +69,11 @@ const Checkout = () => {
     <main className="container max-w-2xl py-8 md:py-16 space-y-8 animate-fade-up">
       <h1 className="font-display text-2xl md:text-3xl font-bold">Delivery Details</h1>
 
-      {/* Order summary */}
       <div className="bg-secondary/50 rounded-lg p-4 space-y-3">
         <h2 className="font-medium text-sm text-muted-foreground">Order Summary</h2>
         {items.map((item) => (
           <div key={`${item.product.id}-${item.color}-${item.size}`} className="flex justify-between text-sm">
-            <span>{item.product.name} × {item.quantity}</span>
+            <span>{item.product.name} ({item.color}, {item.size}) × {item.quantity}</span>
             <span>₹{item.product.price * item.quantity}</span>
           </div>
         ))}
@@ -70,12 +106,17 @@ const Checkout = () => {
           </div>
         ))}
 
+        {formError && (
+          <p className="text-sm text-red-500 font-medium">⚠ {formError}</p>
+        )}
+
         <button
           type="submit"
-          className="w-full font-bold py-4 rounded-lg text-base transition-opacity hover:opacity-90 active:scale-[0.98]"
+          disabled={submitting}
+          className="w-full font-bold py-4 rounded-lg text-base transition-opacity hover:opacity-90 active:scale-[0.98] disabled:opacity-60 disabled:cursor-not-allowed"
           style={{ backgroundColor: "#7c3aed", color: "white" }}
         >
-          Pay via PhonePe 💜
+          {submitting ? "Placing Order..." : `Pay ₹${totalAmount} via PhonePe 💜`}
         </button>
         <p className="text-xs text-muted-foreground text-center">UPI · Cards · Wallet · Net Banking</p>
         <p className="text-xs text-muted-foreground text-center">Your order details will be sent to your email and WhatsApp after payment</p>
