@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { supabase, DbOrder, DbProduct } from "@/lib/supabase";
-import { Package, ShoppingBag, TrendingUp, ExternalLink, Save, Plus, Trash2, Pencil, X, Upload, ImageIcon } from "lucide-react";
+import { supabase, DbOrder, DbProduct, DbCustomer } from "@/lib/supabase";
+import { Package, ShoppingBag, TrendingUp, ExternalLink, Save, Plus, Trash2, Pencil, X, Upload, ImageIcon, Users, Phone, Mail, ChevronDown, ChevronUp } from "lucide-react";
 
 const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || "Panda@2025!";
 
@@ -49,7 +49,14 @@ const Admin = () => {
   const [authed, setAuthed] = useState(false);
   const [password, setPassword] = useState("");
   const [pwError, setPwError] = useState("");
-  const [tab, setTab] = useState<"orders" | "products" | "dashboard">("orders");
+  const [tab, setTab] = useState<"orders" | "products" | "customers" | "dashboard">("orders");
+
+  // Customers state
+  const [customers, setCustomers] = useState<DbCustomer[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(true);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
+  const [customerOrders, setCustomerOrders] = useState<Record<string, DbOrder[]>>({});
 
   // Orders state
   const [orders, setOrders] = useState<DbOrder[]>([]);
@@ -91,8 +98,25 @@ const Admin = () => {
     setProductsLoading(false);
   };
 
+  const fetchCustomers = async () => {
+    setCustomersLoading(true);
+    const { data } = await supabase.from("customers").select("*").order("created_at", { ascending: false });
+    if (data) setCustomers(data as DbCustomer[]);
+    setCustomersLoading(false);
+  };
+
+  const fetchCustomerOrders = async (email: string, customerId: string) => {
+    if (customerOrders[customerId]) {
+      setExpandedCustomer(expandedCustomer === customerId ? null : customerId);
+      return;
+    }
+    const { data } = await supabase.from("orders").select("*").eq("customer_email", email).order("created_at", { ascending: false });
+    if (data) setCustomerOrders((prev) => ({ ...prev, [customerId]: data as DbOrder[] }));
+    setExpandedCustomer(customerId);
+  };
+
   useEffect(() => {
-    if (authed) { fetchOrders(); fetchProducts(); }
+    if (authed) { fetchOrders(); fetchProducts(); fetchCustomers(); }
   }, [authed]);
 
   // ── Order actions ───────────────────────────────────────────────────────
@@ -264,7 +288,7 @@ const Admin = () => {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="font-display text-2xl font-bold">🐼 Admin Panel</h1>
         <div className="flex gap-2">
-          {(["dashboard", "orders", "products"] as const).map((t) => (
+          {(["dashboard", "orders", "products", "customers"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${tab === t ? "bg-primary text-primary-foreground" : "bg-secondary"}`}>
               {t}
@@ -425,6 +449,135 @@ const Admin = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+
+      {/* CUSTOMERS */}
+      {tab === "customers" && (
+        <div className="space-y-4">
+          <div className="flex flex-wrap justify-between items-center gap-3">
+            <p className="text-sm text-muted-foreground">{customers.length} registered customers</p>
+            <input
+              type="text"
+              placeholder="Search by name, email or phone..."
+              value={customerSearch}
+              onChange={(e) => setCustomerSearch(e.target.value)}
+              className="bg-secondary border border-border rounded-lg px-4 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring w-full md:w-72"
+            />
+          </div>
+
+          {customersLoading ? (
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => <div key={i} className="h-20 bg-secondary animate-pulse rounded-xl" />)}
+            </div>
+          ) : customers.length === 0 ? (
+            <div className="text-center py-20 space-y-3">
+              <Users className="w-16 h-16 mx-auto text-muted-foreground" />
+              <p className="text-muted-foreground">No customers registered yet.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {customers
+                .filter((c) => {
+                  const q = customerSearch.toLowerCase();
+                  return !q || c.name.toLowerCase().includes(q) || c.email.toLowerCase().includes(q) || c.phone.includes(q);
+                })
+                .map((customer) => {
+                  const isExpanded = expandedCustomer === customer.id;
+                  const cOrders = customerOrders[customer.id] || [];
+                  const totalSpent = cOrders.filter(o => o.payment_status === "paid").reduce((s, o) => s + o.total_amount, 0);
+
+                  return (
+                    <div key={customer.id} className="bg-secondary/30 border border-border rounded-xl overflow-hidden">
+                      {/* Customer row */}
+                      <div className="flex flex-wrap items-center gap-3 p-4">
+                        {/* Avatar */}
+                        <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center font-bold text-primary text-sm shrink-0">
+                          {customer.name.charAt(0).toUpperCase()}
+                        </div>
+
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium text-sm">{customer.name}</p>
+                          <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-0.5">
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Mail className="w-3 h-3" />{customer.email}
+                            </span>
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Phone className="w-3 h-3" />{customer.phone || "—"}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Stats */}
+                        <div className="text-right shrink-0">
+                          <p className="text-xs text-muted-foreground">Joined</p>
+                          <p className="text-xs font-medium">{new Date(customer.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
+                        </div>
+
+                        {/* Orders toggle */}
+                        <button
+                          onClick={() => fetchCustomerOrders(customer.email, customer.id)}
+                          className="flex items-center gap-1.5 bg-secondary border border-border text-sm px-3 py-1.5 rounded-lg hover:bg-border transition-colors shrink-0"
+                        >
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                          Orders
+                          {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+
+                      {/* Expanded orders */}
+                      {isExpanded && (
+                        <div className="border-t border-border bg-secondary/20 p-4 space-y-3">
+                          {cOrders.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">No orders yet from this customer.</p>
+                          ) : (
+                            <>
+                              <div className="flex justify-between items-center mb-2">
+                                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{cOrders.length} order{cOrders.length !== 1 ? "s" : ""}</p>
+                                {totalSpent > 0 && (
+                                  <p className="text-xs font-bold text-green-400">Total spent: ₹{totalSpent.toLocaleString("en-IN")}</p>
+                                )}
+                              </div>
+                              {cOrders.map((order) => (
+                                <div key={order.id} className="bg-background border border-border rounded-lg p-3 space-y-2">
+                                  <div className="flex justify-between items-start flex-wrap gap-2">
+                                    <div>
+                                      <p className="font-bold text-primary text-sm">{order.order_number}</p>
+                                      <p className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</p>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                                        order.order_status === "delivered" ? "bg-green-500/20 text-green-400" :
+                                        order.order_status === "shipped" ? "bg-purple-500/20 text-purple-400" :
+                                        order.order_status === "ordered_from_vendor" ? "bg-blue-500/20 text-blue-400" :
+                                        "bg-amber-500/20 text-amber-400"
+                                      }`}>
+                                        {order.order_status.replace(/_/g, " ")}
+                                      </span>
+                                      <span className="font-bold text-sm">₹{order.total_amount.toLocaleString("en-IN")}</span>
+                                    </div>
+                                  </div>
+                                  <div className="text-xs text-muted-foreground space-y-0.5">
+                                    {order.items.map((item, i) => (
+                                      <p key={i}>{item.name} — {item.color}, {item.size} × {item.qty}</p>
+                                    ))}
+                                  </div>
+                                  {order.tracking_number && (
+                                    <p className="text-xs text-green-400">🚚 Blue Dart: {order.tracking_number}</p>
+                                  )}
+                                </div>
+                              ))}
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           )}
         </div>

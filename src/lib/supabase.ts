@@ -61,3 +61,11 @@ export interface DeliveryAddress {
   state: string;
   pincode: string;
 }
+
+export interface DbCustomer {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  created_at: string;
+}
